@@ -21,3 +21,11 @@ PLAN OF ATTACK:
 	Make sure we meet safety levels
 	
 	Output table with quantities of parts to be ordered
+	
+	
+Questions to ask:
+	Are reoccuring orders a thing?
+	
+	Do we need to write triggers of re-order points or just project part needs?
+	
+	Calculate seasonal demand over last X years or last X years with real data? aka How do work with old database.

@@ -1,0 +1,1 @@
+SELECT 'We are cool'
