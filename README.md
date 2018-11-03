@@ -4,6 +4,8 @@ Dedicated to our mothers. WIthout them, we wouldn't be here today.
 
 Good article: https://www.smartsheet.com/guide-to-material-requirements-planning
 
+Reference for AdventureWorks2012: http://www.sqldatadictionary.com/AdventureWorks2012.pdf
+
 PLAN OF ATTACK:
 
 	Calculate current orders
@@ -21,7 +23,6 @@ PLAN OF ATTACK:
 	Make sure we meet safety levels
 	
 	Output table with quantities of parts to be ordered
-	
 	
 Questions to ask:
 	Are reoccuring orders a thing?
