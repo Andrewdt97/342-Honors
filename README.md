@@ -17,6 +17,7 @@ PLAN OF ATTACK:
 	Demand
 	
 	Use bill of materials to find out part requirements from demand
+		- Cursor through demand and run SP to get component needs
 	
 	Subtract current inventory
 	
@@ -29,4 +30,4 @@ Questions to ask:
 	
 	Do we need to write triggers of re-order points or just project part needs?
 	
-	Calculate seasonal demand over last X years or last X years with real data? aka How do work with old database.
+	What do we do about in process use with old data?
