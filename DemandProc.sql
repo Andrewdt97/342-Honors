@@ -28,14 +28,18 @@ as
 
 	union
 
-		SELECT pro.ProductID, SUM(sod.OrderQty) FROM 
-		Production.Product pro JOIN Sales.SalesOrderDetail sod
-			ON pro.ProductID = sod.ProductID
-		JOIN Sales.SalesOrderHeader soh ON sod.SalesOrderID = soh.SalesOrderID
-		WHERE DATEPART(DAYOFYEAR, OrderDate) > DATEPART(DAYOFYEAR, Convert(datetime, '2006-01-01' )) -- Will become GETDATE - numOfDays
-			AND DATEPART(DAYOFYEAR, OrderDate) < DATEPART(DAYOFYEAR, Convert(datetime, '2006-03-01' )) -- Will become GETDATE
-			AND DATEPART(YEAR, OrderDate) < DATEPART(YEAR, convert(datetime, '2010-04-01'))
-		GROUP BY pro.ProductID
+		SELECT "ID"
+		, AVG("sum")
+	FROM
+		(SELECT pro.ProductID "ID", SUM(sod.OrderQty) "sum", DATEPART(YEAR, OrderDate) "year" FROM 
+			Production.Product pro JOIN Sales.SalesOrderDetail sod
+				ON pro.ProductID = sod.ProductID
+			JOIN Sales.SalesOrderHeader soh ON sod.SalesOrderID = soh.SalesOrderID
+			WHERE DATEPART(DAYOFYEAR, OrderDate) > DATEPART(DAYOFYEAR, Convert(datetime, '2006-01-01' )) -- Will become GETDATE - numOfDays
+				AND DATEPART(DAYOFYEAR, OrderDate) < DATEPART(DAYOFYEAR, Convert(datetime, '2006-03-01' )) -- Will become GETDATE
+				AND DATEPART(YEAR, OrderDate) < DATEPART(YEAR, convert(datetime, '2010-04-01'))
+			GROUP BY pro.ProductID, DATEPART(YEAR, OrderDate)) HistoricalOrders
+	GROUP BY "ID"
 
 	) as demcalc
 	group by [ProductID]
@@ -45,3 +49,11 @@ exec CalculateDemand
 select * from DemandCalc
 
 --select * from Production.Product
+
+
+declare @date datetime;
+declare @ID int;
+set @date = convert(datetime, '2006-01-01');
+set @ID = 984;
+
+exec getBOM @ID, @date
