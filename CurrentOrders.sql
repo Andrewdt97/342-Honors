@@ -36,7 +36,6 @@ as
 			WHERE DATEPART(DAYOFYEAR, OrderDate) > DATEPART(DAYOFYEAR, Convert(datetime, '2006-01-01' )) -- Will become GETDATE - numOfDays
 				AND DATEPART(DAYOFYEAR, OrderDate) < DATEPART(DAYOFYEAR, Convert(datetime, '2006-03-01' )) -- Will become GETDATE
 				AND DATEPART(YEAR, OrderDate) < DATEPART(YEAR, convert(datetime, '2010-04-01'))
-				AND pro.Name = 'AWC Logo Cap'
 			GROUP BY pro.Name, DATEPART(YEAR, OrderDate)) HistoricalOrders
 	GROUP BY "name"
 
