@@ -28,14 +28,18 @@ as
 
 	union
 
-		SELECT pro.Name, SUM(sod.OrderQty) FROM 
-		Production.Product pro JOIN Sales.SalesOrderDetail sod
-			ON pro.ProductID = sod.ProductID
-		JOIN Sales.SalesOrderHeader soh ON sod.SalesOrderID = soh.SalesOrderID
-		WHERE DATEPART(DAYOFYEAR, OrderDate) > DATEPART(DAYOFYEAR, Convert(datetime, '2006-01-01' )) -- Will become GETDATE - numOfDays
-			AND DATEPART(DAYOFYEAR, OrderDate) < DATEPART(DAYOFYEAR, Convert(datetime, '2006-03-01' )) -- Will become GETDATE
-			AND DATEPART(YEAR, OrderDate) < DATEPART(YEAR, convert(datetime, '2010-04-01'))
-		GROUP BY pro.Name
+	SELECT "name"
+		, AVG("sum")
+	FROM
+		(SELECT pro.Name "name", SUM(sod.OrderQty) "sum", DATEPART(YEAR, OrderDate) "year" FROM 
+			Production.Product pro JOIN Sales.SalesOrderDetail sod
+				ON pro.ProductID = sod.ProductID
+			JOIN Sales.SalesOrderHeader soh ON sod.SalesOrderID = soh.SalesOrderID
+			WHERE DATEPART(DAYOFYEAR, OrderDate) > DATEPART(DAYOFYEAR, Convert(datetime, '2006-01-01' )) -- Will become GETDATE - numOfDays
+				AND DATEPART(DAYOFYEAR, OrderDate) < DATEPART(DAYOFYEAR, Convert(datetime, '2006-03-01' )) -- Will become GETDATE
+				AND DATEPART(YEAR, OrderDate) < DATEPART(YEAR, convert(datetime, '2010-04-01'))
+			GROUP BY pro.Name, DATEPART(YEAR, OrderDate)) HistoricalOrders
+	GROUP BY "name"
 
 	) as demcalc
 	group by [Name]
