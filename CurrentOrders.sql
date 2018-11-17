@@ -31,7 +31,7 @@ as
 	SELECT "name"
 		, AVG("sum")
 	FROM
-		(SELECT pro.Name "name", SUM(sod.OrderQty) "sum", DATEPART(YEAR, OrderDate) "year" FROM 
+		(SELECT pro.Name "Name", SUM(sod.OrderQty) "sum", DATEPART(YEAR, OrderDate) "year" FROM 
 			Production.Product pro JOIN Sales.SalesOrderDetail sod
 				ON pro.ProductID = sod.ProductID
 			JOIN Sales.SalesOrderHeader soh ON sod.SalesOrderID = soh.SalesOrderID

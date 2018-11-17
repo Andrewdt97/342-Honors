@@ -8,6 +8,8 @@ Reference for AdventureWorks2012: http://www.sqldatadictionary.com/AdventureWork
 
 PLAN OF ATTACK:
 
+	Remove deprecated calculations
+
 	Calculate current orders
 	+
 	Calculate seasonal demand
