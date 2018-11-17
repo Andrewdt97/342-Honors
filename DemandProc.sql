@@ -6,6 +6,8 @@ go
 
 alter proc CalculateDemand
 as
+	if object_id('DemandCalc') is not null
+		drop table DemandCalc
 	
 	if object_id('DemandCalc') is null
 		create table DemandCalc(
@@ -42,4 +44,4 @@ go
 exec CalculateDemand
 select * from DemandCalc
 
-select * from Production.Product
+--select * from Production.Product
