@@ -1,5 +1,6 @@
 -- Determine current orders for products
 -- Get final product demand first, then worry about recursion and BOM stuff
+-- Same as CurrentOrders.sql but with the ID instead of the name
 
 use AdventureWorks2012
 go
