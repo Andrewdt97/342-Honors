@@ -1,6 +1,6 @@
 Honors project by Andrew Thomas and Ty Vredeveld
 
-Dedicated to our mothers. WIthout them, we wouldn't be here today.
+Dedicated to our mothers. Without them, we wouldn't be here today.
 
 Good article: https://www.smartsheet.com/guide-to-material-requirements-planning
 
