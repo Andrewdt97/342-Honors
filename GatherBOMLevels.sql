@@ -12,67 +12,117 @@ use AdventureWorks2012
 go
 
 alter proc BOMRecursion
-	@days int
 as 
-	if object_id('BOMComponentNeeds') is not null
-		drop table BOMComponentNeeds
-
-	if object_id('BOMComponentNeeds') is null
-		create table BOMComponentNeeds(
-			ID int, 
-			Qty int,
-			StartDate datetime,
-			EndDate datetime)
-
-	declare @startDate datetime
-	declare @endDate datetime
-	set @startDate = GETDATE()
-	set @endDate = @startDate + @days
 
 
 	declare @myID int
-	declare @initialQty int
+	declare @qty int
+	declare @subpartID int
+	declare @subpartQty int
 	
-	declare my_cursor cursor for
+	declare cursor1 cursor for
 		select ID, Quantity
 		from DemandCalc
-	open my_cursor
-	fetch next from my_cursor into @myID, @initialQty
-
-	create table #temp (pID int, cID int, qty int, lvl int)
+	open cursor1
+	fetch next from cursor1 into @myID, @qty
 
 	-- loop through the demand calc table and determine BOM levels for all subparts of "top-level" parts
 	while @@FETCH_STATUS = 0
-	begin
-		select @myID, @initialQty
+	begin		
 		
-		insert into #temp
-		exec getBOM @myID, @startDate
+		if exists (select ProductID from Production.ExpectedInventory where ProductID = @myID)
+		begin
+			update Production.ExpectedInventory
+			set Quantity = Quantity - @qty
+			where ProductID = @myID
+		end
 
-		select * from #temp
+		else
+		begin
+			insert into Production.ExpectedInventory values (@myID, @qty * -1)
+		end
 
-
-		-- reference bottom URL for details
-		-- have to figure out how to get this working...
-
-		--with CTE (Part, Component, Quantity) as
-		--	(
-		--		select root.pID, root.cID, root.qty
-		--		from #temp root
-		--		where root.pID = 955)
-		--select Part, Component, SUM(Quantity) as "Total Used"
-		--from CTE
-		--group by Part, Component
-		--order by Part, Component;
-
-
-
-		delete from #temp
-		fetch next from my_cursor into @myID, @initialQty
+		fetch next from cursor1 into @myID, @qty
 	end
-	close my_cursor
-	deallocate my_cursor
+	close cursor1
+	deallocate cursor1
+
+	while (select min(Quantity) from Production.ExpectedInventory) < 0
+	begin
+	
+		declare cursor2 cursor for
+			select ProductID, Quantity
+			from Production.ExpectedInventory
+		open cursor2
+		fetch next from cursor2 into @myID, @qty
+
+		while @@FETCH_STATUS = 0
+		begin
+			
+			if @qty < 0
+			begin
+				
+				if exists (select ComponentID from Production.BillOfMaterials where ProductAssemblyID = @myID)
+				begin
+					
+					declare cursor3 cursor for
+						select ComponentID, PerAssemblyQty
+						from Production.BillOfMaterials
+						where ProductAssemblyID = @myID
+					open cursor3
+					fetch next from cursor3 into @subpartID, @subpartQty
+
+					while @@FETCH_STATUS = 0
+					begin
+							
+						if exists (select ProductID from Production.ExpectedInventory where ProductID = @subpartID)
+						begin
+							update Production.ExpectedInventory
+							set Quantity = Quantity + (@qty * @subpartQty)
+							where ProductID = @subpartID
+						end
+
+						else
+						begin
+							insert into Production.ExpectedInventory values (@subpartID, @subpartQty * @qty)
+						end
+
+						fetch next from cursor3 into @subpartID, @subpartQty
+					end
+					close cursor3
+					deallocate cursor3
+
+				end
+
+				else
+				begin
+					
+					if exists (select ID from NeededOrders where ID = @myID)
+					begin
+						update NeededOrders
+						set qty = qty + abs(@qty)
+						where ID = @myID
+					end
+
+					else
+					begin
+						-- TODO: update second getdate to actually put end date
+						insert into NeededOrders values (@myID, abs(@qty), getdate(), getdate())
+					end
+
+				end
+
+				update Production.ExpectedInventory
+				set Quantity = 0
+				where ProductID = @myID
+
+			end
+
+			fetch next from cursor2 into @myID, @qty
+		end
+		close cursor2
+		deallocate cursor2
+	end
 go
 
-exec BOMRecursion @days = 30
-select * from BOMComponentneeds
+exec BOMRecursion

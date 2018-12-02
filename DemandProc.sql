@@ -55,6 +55,6 @@ select * from DemandCalc
 declare @date datetime;
 declare @ID int;
 set @date = convert(datetime, '2006-01-01');
-set @ID = 984;
+set @ID = 518;
 
 exec getBOM @ID, @date

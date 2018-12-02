@@ -1,0 +1,39 @@
+what do we have:
+
+DemandCalc (seasonal demand + current orders)
+BOMComponentNeeds (all demanded products broken into subparts with total qty required)
+
+
+ExpectedInv (current inventory + incoming orders)
+
+old tables:
+
+	if object_id('BOM_setup') is null
+		create table BOM_setup (pID int, cID int, qty int, lvl int)
+
+	if object_id('BOM_final_qtys') is null
+		create table BOM_final_qtys (pID int, cID int, qty int)
+
+old cursor code:
+
+		insert into BOM_setup
+		exec getBOM @myID, @startDate
+
+		insert into BOM_final_qtys
+		exec BOM_CTE @myID
+
+		if exists (select 1 from BOM_setup)
+		begin
+			insert into #temp
+			select cID, qty * @initialQty from BOM_final_qtys
+			where cID not in (select pID from BOM_setup)
+		end
+
+		else
+		begin
+			insert into #temp (ID, qty)
+			values (@myID, @initialQty)
+		end
+
+		delete from BOM_setup
+		delete from BOM_final_qtys
