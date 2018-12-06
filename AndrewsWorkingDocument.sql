@@ -67,21 +67,21 @@ DECLARE product_cursor CURSOR FOR
 SELECT ProductID
 FROM Production.ProductInventory
 
-OPEN product_curson  
-FETCH NEXT FROM db_cursor INTO @id
+OPEN product_cursor  
+FETCH NEXT FROM product_cursor INTO @id
 
 WHILE @@FETCH_STATUS = 0  
 BEGIN  
-	SET @current = (SELECT ExpectedQty FROM Production.ExpectedInventory WHERE ProductID = @id);
-	SET @demand = (SELECT Quantity FROM DEMANDTABLE WHERE ProductID = @id);
+	SET @current = (SELECT Quantity FROM Production.ExpectedInventory WHERE ProductID = @id);
+	SET @demand = (SELECT Quantity FROM DemandCalc WHERE ID = @id);
 	SET @safety = (SELECT SafetyStockLevel FROM Production.Product WHERE ProductID = @id);
 	
 	IF (@demand < @safety AND @current < @safety)
-		UPDATE NEEDTABLE
-		SET Quantity = @safety
-		WHERE ProductID = @id
+		UPDATE NeededOrders
+		SET qty = @safety
+		WHERE ID = @id
 		
-    FETCH NEXT FROM db_cursor INTO @name 
+    FETCH NEXT FROM product_cursor INTO @id 
 END 
 
 CLOSE product_cursor  

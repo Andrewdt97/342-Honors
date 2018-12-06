@@ -8,29 +8,48 @@ USE AdventureWorks2012
 GO
 
 -------------------------------
--- Table Creation             |
--------------------------------
-CREATE TABLE Production.ExpectedInventory (
-	ProductID int
-	, Quantity int
-) -- TODO: Clean up
-GO
-
-create table NeededOrders (
-	ID int,
-	qty int,
-	startDate date,
-	endDate date
-);
-GO
-
-
--------------------------------
 -- SP Creation                |
 -------------------------------
-CREATE proc ExpectedInventory
-as
-begin
+
+CREATE PROC MakeTables
+AS
+BEGIN
+
+	IF OBJECT_ID(N'Production.ExpectedInventory') IS NOT NULL
+		DROP TABLE Production.ExpectedInventory
+
+	IF OBJECT_ID(N'Production.ExpectedInventory') IS NULL
+		CREATE TABLE Production.ExpectedInventory (
+			ProductID int
+			, Quantity int)
+
+	IF OBJECT_ID('DemandCalc') IS NOT NULL
+		DROP TABLE DemandCalc
+	
+	IF OBJECT_ID('DemandCalc') IS NULL
+		CREATE TABLE DemandCalc(
+			ID int,
+			Quantity int)
+
+	IF OBJECT_ID('NeededOrders') IS NOT NULL
+		DROP TABLE NeededOrders
+
+	IF OBJECT_ID('NeededOrders') IS NULL
+		CREATE TABLE NeededOrders (
+			ID int,
+			qty int,
+			startDate date,
+			endDate date)
+
+END
+GO
+
+
+
+CREATE PROC ExpectedInventory
+AS
+BEGIN
+
 	DELETE FROM Production.ExpectedInventory
 	INSERT INTO Production.ExpectedInventory
 	SELECT incoming.ProductID
@@ -38,42 +57,36 @@ begin
 	FROM (SELECT ProductID
 			, Sum(Quantity) [CurrentInv]
 		FROM Production.ProductInventory
-		GROUP BY ProductID) as currentInvTable
+		GROUP BY ProductID) AS currentInvTable
 	JOIN (SELECT pod.ProductID
 			, sum(pod.OrderQty) [OrderQty]
 		FROM Purchasing.PurchaseOrderHeader poh
 		JOIN Purchasing.PurchaseOrderDetail pod ON poh.PurchaseOrderID = pod.PurchaseOrderID
 		WHERE poh.Status IN (1, 2)
-		GROUP BY pod.ProductID) as incoming
+		GROUP BY pod.ProductID) AS incoming
 	ON currentInvTable.ProductID = incoming.ProductID
 	ORDER BY incoming.ProductID
-end
-go
+END
+GO
 
-create proc CalculateDemand
-as
-begin
-	if object_id('DemandCalc') is not null
-		drop table DemandCalc
-	
-	if object_id('DemandCalc') is null
-		create table DemandCalc(
-			ID int,
-			Quantity int)
+CREATE PROC CalculateDemand
+AS
+BEGIN
 
-	insert into DemandCalc 
+	DELETE FROM DemandCalc
+	INSERT INTO DemandCalc 
 
-		select [ProductID], sum([Quantity]) from (
+		SELECT [ProductID], sum([Quantity]) FROM (
 
-		select p.ProductID [ProductID], sum(sd.OrderQty) [Quantity] from Production.Product p
-		inner join Sales.SalesOrderDetail sd on sd.ProductID = p.ProductID
-		inner join Sales.SalesOrderHeader sh on sd.SalesOrderID = sh.SalesOrderID
+		SELECT p.ProductID [ProductID], sum(sd.OrderQty) [Quantity] FROM Production.Product p
+		INNER JOIN Sales.SalesOrderDetail sd ON sd.ProductID = p.ProductID
+		INNER JOIN Sales.SalesOrderHeader sh ON sd.SalesOrderID = sh.SalesOrderID
 		-- could be used in case the Status column isn't always reliable and we want to check by date instead
-		--where (sh.OrderDate <= convert(datetime, '2008-07-01') and convert(datetime, '2008-07-01') <= sh.DueDate)
-		where sh.Status = 1 or sh.Status = 2 or sh.Status = 3
-		group by p.ProductID
+		--WHERE (sh.OrderDate <= convert(datetime, '2008-07-01') and convert(datetime, '2008-07-01') <= sh.DueDate)
+		WHERE sh.Status = 1 OR sh.Status = 2 OR sh.Status = 3
+		GROUP BY p.ProductID
 
-	union
+	UNION
 
 		SELECT "ID"
 		, AVG("sum")
@@ -82,128 +95,131 @@ begin
 			Production.Product pro JOIN Sales.SalesOrderDetail sod
 				ON pro.ProductID = sod.ProductID
 			JOIN Sales.SalesOrderHeader soh ON sod.SalesOrderID = soh.SalesOrderID
-			WHERE DATEPART(DAYOFYEAR, OrderDate) > DATEPART(DAYOFYEAR, Convert(datetime, '2006-01-01' )) -- Will become GETDATE - numOfDays
-				AND DATEPART(DAYOFYEAR, OrderDate) < DATEPART(DAYOFYEAR, Convert(datetime, '2006-03-01' )) -- Will become GETDATE
-				AND DATEPART(YEAR, OrderDate) < DATEPART(YEAR, convert(datetime, '2010-04-01'))
+			WHERE DATEPART(DAYOFYEAR, OrderDate) > DATEPART(DAYOFYEAR, CONvert(datetime, '2006-01-01' )) -- Will become GETDATE - numOfDays
+				AND DATEPART(DAYOFYEAR, OrderDate) < DATEPART(DAYOFYEAR, CONvert(datetime, '2006-03-01' )) -- Will become GETDATE
+				AND DATEPART(YEAR, OrderDate) < DATEPART(YEAR, cONvert(datetime, '2010-04-01'))
 			GROUP BY pro.ProductID, DATEPART(YEAR, OrderDate)) HistoricalOrders
 	GROUP BY "ID"
 
-	) as demcalc
-	group by [ProductID]
-end
-go
+	) AS demcalc
+	GROUP BY [ProductID]
+END
+GO
 
-create proc BOMRecursion
-as
-begin
-	declare @myID int
-	declare @qty int
-	declare @subpartID int
-	declare @subpartQty int
+CREATE PROC BOMRecursion
+AS
+BEGIN
+
+	DELETE FROM NeededOrders
+
+	DECLARE @myID int
+	DECLARE @qty int
+	DECLARE @subpartID int
+	DECLARE @subpartQty int
 	
-	declare cursor1 cursor for
-		select ID, Quantity
-		from DemandCalc
-	open cursor1
-	fetch next from cursor1 into @myID, @qty
+	DECLARE cursor1 CURSOR FOR
+		SELECT ID, Quantity
+		FROM DemandCalc
+	OPEN cursor1
+	FETCH NEXT FROM cursor1 INTO @myID, @qty
 
-	-- loop through the demand calc table and determine BOM levels for all subparts of "top-level" parts
-	while @@FETCH_STATUS = 0
-	begin		
+	-- loop through the demand calc TABLE and deterMINe BOM levels fOR all subparts of "top-level" parts
+	WHILE @@FETCH_STATUS = 0
+	BEGIN		
 		
-		if exists (select ProductID from Production.ExpectedInventory where ProductID = @myID)
-		begin
-			update Production.ExpectedInventory
-			set Quantity = Quantity - @qty
-			where ProductID = @myID
-		end
+		IF EXISTS (SELECT ProductID FROM Production.ExpectedInventory WHERE ProductID = @myID)
+		BEGIN
+			UPDATE Production.ExpectedInventory
+			SET Quantity = Quantity - @qty
+			WHERE ProductID = @myID
+		END
 
-		else
-		begin
-			insert into Production.ExpectedInventory values (@myID, @qty * -1)
-		end
+		ELSE
+		BEGIN
+			INSERT INTO Production.ExpectedInventory VALUES (@myID, @qty * -1)
+		END
 
-		fetch next from cursor1 into @myID, @qty
-	end
-	close cursor1
-	deallocate cursor1
+		FETCH NEXT FROM cursor1 INTO @myID, @qty
+	END
+	CLOSE cursor1
+	DEALLOCATE cursor1
 
-	while (select min(Quantity) from Production.ExpectedInventory) < 0
-	begin
+	WHILE (SELECT MIN(Quantity) FROM Production.ExpectedInventory) < 0
+	BEGIN
 	
-		declare cursor2 cursor for
-			select ProductID, Quantity
-			from Production.ExpectedInventory
-		open cursor2
-		fetch next from cursor2 into @myID, @qty
+		DECLARE cursor2 CURSOR fOR
+			SELECT ProductID, Quantity
+			FROM Production.ExpectedInventory
+		OPEN cursor2
+		FETCH NEXT FROM cursor2 INTO @myID, @qty
 
-		while @@FETCH_STATUS = 0
-		begin
+		WHILE @@FETCH_STATUS = 0
+		BEGIN
 			
-			if @qty < 0
-			begin
+			IF @qty < 0
+			BEGIN
 				
-				if exists (select ComponentID from Production.BillOfMaterials where ProductAssemblyID = @myID)
-				begin
+				IF EXISTS (SELECT ComponentID FROM Production.BillOfMaterials WHERE ProductAssemblyID = @myID)
+				BEGIN
 					
-					declare cursor3 cursor for
-						select ComponentID, PerAssemblyQty
-						from Production.BillOfMaterials
-						where ProductAssemblyID = @myID
-					open cursor3
-					fetch next from cursor3 into @subpartID, @subpartQty
+					DECLARE cursor3 CURSOR fOR
+						SELECT ComponentID, PerAssemblyQty
+						FROM Production.BillOfMaterials
+						WHERE ProductAssemblyID = @myID
+					OPEN cursor3
+					FETCH NEXT FROM cursor3 INTO @subpartID, @subpartQty
 
-					while @@FETCH_STATUS = 0
-					begin
+					WHILE @@FETCH_STATUS = 0
+					BEGIN
 							
-						if exists (select ProductID from Production.ExpectedInventory where ProductID = @subpartID)
-						begin
-							update Production.ExpectedInventory
-							set Quantity = Quantity + (@qty * @subpartQty)
-							where ProductID = @subpartID
-						end
+						IF EXISTS (SELECT ProductID FROM Production.ExpectedInventory WHERE ProductID = @subpartID)
+						BEGIN
+							UPDATE Production.ExpectedInventory
+							SET Quantity = Quantity + (@qty * @subpartQty)
+							WHERE ProductID = @subpartID
+						END
 
-						else
-						begin
-							insert into Production.ExpectedInventory values (@subpartID, @subpartQty * @qty)
-						end
+						ELSE
+						BEGIN
+							INSERT INTO Production.ExpectedInventory VALUES (@subpartID, @subpartQty * @qty)
+						END
 
-						fetch next from cursor3 into @subpartID, @subpartQty
-					end
-					close cursor3
-					deallocate cursor3
+						FETCH NEXT FROM cursor3 INTO @subpartID, @subpartQty
+					END
+					CLOSE cursor3
+					DEALLOCATE cursor3
 
-				end
+				END
 
-				else
-				begin
+				ELSE
+				BEGIN
 					
-					if exists (select ID from NeededOrders where ID = @myID)
-					begin
-						update NeededOrders
-						set qty = qty + abs(@qty)
-						where ID = @myID
-					end
+					IF EXISTS (SELECT ID FROM NeededOrders WHERE ID = @myID)
+					BEGIN
+						UPDATE NeededOrders
+						SET qty = qty + abs(@qty)
+						WHERE ID = @myID
+					END
 
-					else
-					begin
-						-- TODO: update second getdate to actually put end date
-						insert into NeededOrders values (@myID, abs(@qty), getdate(), getdate())
-					end
+					ELSE
+					BEGIN
+						-- TODO: UPDATE secONd getdate to actually put END date
+						INSERT INTO NeededOrders VALUES (@myID, abs(@qty), getdate(), getdate())
+					END
 
-				end
+				END
 
-				update Production.ExpectedInventory
-				set Quantity = 0
-				where ProductID = @myID
+				UPDATE Production.ExpectedInventory
+				SET Quantity = 0
+				WHERE ProductID = @myID
 
-			end
+			END
 
-			fetch next from cursor2 into @myID, @qty
-		end
-		close cursor2
-		deallocate cursor2
-	end
+			FETCH NEXT FROM cursor2 INTO @myID, @qty
+		END
+		CLOSE cursor2
+		DEALLOCATE cursor2
+	END
 	
-end
-go
+END
+GO

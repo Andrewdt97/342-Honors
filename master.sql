@@ -1,9 +1,10 @@
-use AdventureWorks2012
-go
+USE AdventureWorks2012
+GO
 
-exec ExpectedInventory
-exec CalculateDemand
-exec BOMRecursion @days = 30
+EXEC MakeTables
+EXEC ExpectedInventory
+EXEC CalculateDemand
+EXEC BOMRecursion
 
 SELECT * FROM NeededOrders
 ORDER BY ID
