@@ -276,7 +276,7 @@ BEGIN
 END
 GO
 
-ALTER PROC MRP_Calculate_Orders
+CREATE PROC MRP_Calculate_Orders
 	@numDays int
 AS
 BEGIN
