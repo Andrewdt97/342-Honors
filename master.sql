@@ -1,7 +1,9 @@
 USE AdventureWorks2012
 GO
 
-EXEC MRP_Calculate_Orders 30;
+DECLARE @days int
+SET @days = 30
+EXEC MRP_Calculate_Orders @days;
 
 SELECT * FROM NeededOrders
 ORDER BY ID

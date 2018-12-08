@@ -171,7 +171,7 @@ BEGIN
 					ELSE
 					BEGIN
 						-- TODO: UPDATE second getdate to actually put END date
-						INSERT INTO NeededOrders VALUES (@myID, abs(@qty), getdate(), getdate())
+						INSERT INTO NeededOrders VALUES (@myID, abs(@qty), getdate(), getdate() + @numDaysOut)
 					END
 
 				END
@@ -276,8 +276,8 @@ BEGIN
 END
 GO
 
-CREATE PROC MRP_Calculate_Orders
-	@numDays int = 0
+ALTER PROC MRP_Calculate_Orders
+	@numDays int
 AS
 BEGIN
 	EXEC MakeTables
