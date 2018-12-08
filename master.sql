@@ -1,10 +1,7 @@
 USE AdventureWorks2012
 GO
 
-EXEC MakeTables
-EXEC ExpectedInventory
-EXEC CalculateDemand
-EXEC BOMRecursion
+EXEC MRP_Calculate_Orders 30;
 
 SELECT * FROM NeededOrders
 ORDER BY ID

@@ -70,6 +70,7 @@ END
 GO
 
 CREATE PROC CalculateDemand
+	@numDaysOut int
 AS
 BEGIN
 
@@ -81,9 +82,7 @@ BEGIN
 		SELECT p.ProductID [ProductID], sum(sd.OrderQty) [Quantity] FROM Production.Product p
 		INNER JOIN Sales.SalesOrderDetail sd ON sd.ProductID = p.ProductID
 		INNER JOIN Sales.SalesOrderHeader sh ON sd.SalesOrderID = sh.SalesOrderID
-		-- could be used in case the Status column isn't always reliable and we want to check by date instead
-		--WHERE (sh.OrderDate <= convert(datetime, '2008-07-01') and convert(datetime, '2008-07-01') <= sh.DueDate)
-		WHERE sh.Status = 1 OR sh.Status = 2 OR sh.Status = 3
+		WHERE sh.Status <> 4
 		GROUP BY p.ProductID
 
 	UNION
@@ -95,9 +94,9 @@ BEGIN
 			Production.Product pro JOIN Sales.SalesOrderDetail sod
 				ON pro.ProductID = sod.ProductID
 			JOIN Sales.SalesOrderHeader soh ON sod.SalesOrderID = soh.SalesOrderID
-			WHERE DATEPART(DAYOFYEAR, OrderDate) > DATEPART(DAYOFYEAR, CONvert(datetime, '2006-01-01' )) -- Will become GETDATE - numOfDays
-				AND DATEPART(DAYOFYEAR, OrderDate) < DATEPART(DAYOFYEAR, CONvert(datetime, '2006-03-01' )) -- Will become GETDATE
-				AND DATEPART(YEAR, OrderDate) < DATEPART(YEAR, cONvert(datetime, '2010-04-01'))
+			WHERE DATEPART(DAYOFYEAR, OrderDate) > DATEPART(DAYOFYEAR, GETDATE() - @numDaysOut)
+				AND DATEPART(DAYOFYEAR, OrderDate) < DATEPART(DAYOFYEAR, GETDATE())
+				AND DATEPART(YEAR, OrderDate) < DATEPART(YEAR, GETDATE())
 			GROUP BY pro.ProductID, DATEPART(YEAR, OrderDate)) HistoricalOrders
 	GROUP BY "ID"
 
@@ -107,6 +106,7 @@ END
 GO
 
 CREATE PROC BOMRecursion
+	@numDaysOut int
 AS
 BEGIN
 
@@ -158,8 +158,25 @@ BEGIN
 			
 			IF @qty < 0
 			BEGIN
-				
-				IF EXISTS (SELECT ComponentID FROM Production.BillOfMaterials WHERE ProductAssemblyID = @myID)
+				IF EXISTS (SELECT ProductID from Purchasing.ProductVendor WHERE ProductID = @myID)
+				BEGIN
+					
+					IF EXISTS (SELECT ID FROM NeededOrders WHERE ID = @myID)
+					BEGIN
+						UPDATE NeededOrders
+						SET qty = qty + abs(@qty)
+						WHERE ID = @myID
+					END
+
+					ELSE
+					BEGIN
+						-- TODO: UPDATE second getdate to actually put END date
+						INSERT INTO NeededOrders VALUES (@myID, abs(@qty), getdate(), getdate())
+					END
+
+				END
+
+				ELSE IF EXISTS (SELECT ComponentID FROM Production.BillOfMaterials WHERE ProductAssemblyID = @myID)
 				BEGIN
 					
 					DECLARE cursor3 CURSOR fOR
@@ -203,8 +220,7 @@ BEGIN
 
 					ELSE
 					BEGIN
-						-- TODO: UPDATE secONd getdate to actually put END date
-						INSERT INTO NeededOrders VALUES (@myID, abs(@qty), getdate(), getdate())
+						INSERT INTO NeededOrders VALUES (@myID, abs(@qty), getdate(), getdate() + @numDaysOut)
 					END
 
 				END
@@ -221,5 +237,53 @@ BEGIN
 		DEALLOCATE cursor2
 	END
 	
+END
+GO
+
+CREATE PROC SafetyLevels
+AS
+BEGIN
+
+	DECLARE @id int;
+	DECLARE @current int;
+	DECLARE @demand int;
+	DECLARE @safety int;
+
+	DECLARE product_cursor CURSOR FOR 
+	SELECT ProductID
+	FROM Production.ProductInventory
+
+	OPEN product_cursor  
+	FETCH NEXT FROM product_cursor INTO @id
+
+	WHILE @@FETCH_STATUS = 0  
+	BEGIN  
+		SET @current = (SELECT Quantity FROM Production.ExpectedInventory WHERE ProductID = @id);
+		SET @demand = (SELECT Quantity FROM DemandCalc WHERE ID = @id);
+		SET @safety = (SELECT SafetyStockLevel FROM Production.Product WHERE ProductID = @id);
+	
+		IF (@demand < @safety AND @current < @safety)
+			UPDATE NeededOrders
+			SET qty = @safety
+			WHERE ID = @id
+		
+		FETCH NEXT FROM product_cursor INTO @id 
+	END 
+
+	CLOSE product_cursor  
+	DEALLOCATE product_cursor 
+
+END
+GO
+
+CREATE PROC MRP_Calculate_Orders
+	@numDays int = 0
+AS
+BEGIN
+	EXEC MakeTables
+	EXEC ExpectedInventory
+	EXEC CalculateDemand @numDays
+	EXEC BOMRecursion @numDays
+	EXEC SafetyLevels
 END
 GO
