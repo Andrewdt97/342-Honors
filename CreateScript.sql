@@ -77,12 +77,12 @@ BEGIN
 	DELETE FROM DemandCalc
 	INSERT INTO DemandCalc 
 
-		SELECT [ProductID], sum([Quantity]) FROM (
+	SELECT [ProductID], sum([Quantity]) FROM (
 
 		SELECT p.ProductID [ProductID], sum(sd.OrderQty) [Quantity] FROM Production.Product p
 		INNER JOIN Sales.SalesOrderDetail sd ON sd.ProductID = p.ProductID
 		INNER JOIN Sales.SalesOrderHeader sh ON sd.SalesOrderID = sh.SalesOrderID
-		WHERE sh.Status <> 4
+		WHERE sh.Status < 4
 		GROUP BY p.ProductID
 
 	UNION
