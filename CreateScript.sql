@@ -119,6 +119,7 @@ AS
 BEGIN
 
 	DELETE FROM NeededOrders
+	DELETE FROM Production.BoMWorkingTable
 
 	DECLARE @myID int
 	DECLARE @qty int
