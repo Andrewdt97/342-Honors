@@ -103,7 +103,6 @@ BEGIN
 						AND (DATEPART(DAYOFYEAR, OrderDate) < 366)))
 				OR (DATEPART(DAYOFYEAR, GETDATE() + @numDaysOut) < DATEPART(DAYOFYEAR, GETDATE()) 
 						AND DATEPART(DAYOFYEAR, OrderDate) < DATEPART(DAYOFYEAR, GETDATE() + @numDaysOut)))
-				AND sod.ProductID = 1000 -- CHANGE THIS
 				AND DATEPART(YEAR, OrderDate) < DATEPART(YEAR, GETDATE())
 			GROUP BY sod.ProductID, DATEPART(YEAR, OrderDate)) HistoricalOrders
 	GROUP BY "ID"
@@ -182,7 +181,6 @@ BEGIN
 
 					ELSE
 					BEGIN
-						-- TODO: UPDATE second getdate to actually put END date
 						INSERT INTO NeededOrders VALUES (@myID, abs(@qty), getdate(), getdate() + @numDaysOut)
 					END
 
